@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My To-Do List</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f0e8;
+      --card: #fffdf7;
+      --border: #e0d8c8;
+      --ink: #1a1612;
+      --muted: #9a8f80;
+      --accent: #e85d2f;
+      --accent-light: #fde8e0;
+      --green: #2d7a4f;
+      --green-light: #e0f2ea;
+      --shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 80px;
+    }
+
+    /* Background texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(var(--border) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    /* ── APP WRAPPER ── */
+    .app {
+      position: relative;
+      width: 100%;
+      max-width: 580px;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: var(--ink);
+      color: #fff;
+      border-radius: 16px 16px 0 0;
+      padding: 28px 32px 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .header-left h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .header-left p {
+      font-size: 0.82rem;
+      color: #8a8a8a;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .counter-bubble {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--accent);
+      border-radius: 12px;
+      padding: 10px 18px;
+      min-width: 64px;
+    }
+
+    .counter-bubble .count {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .counter-bubble .count.bump {
+      transform: scale(1.35);
+    }
+
+    .counter-bubble .count-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    /* ── INPUT AREA ── */
+    .input-area {
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      padding: 20px 24px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .input-area input {
+      flex: 1;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      padding: 12px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-area input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    .input-area input::placeholder {
+      color: var(--muted);
+    }
+
+    .btn-add {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      padding: 12px 22px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-add:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-add:active { transform: scale(0.97); }
+
+    /* ── FILTER TABS ── */
+    .tabs {
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 10px 16px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── LIST AREA ── */
+    .list-area {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-top: none;
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .list-area::-webkit-scrollbar { width: 5px; }
+    .list-area::-webkit-scrollbar-track { background: transparent; }
+    .list-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      gap: 10px;
+    }
+
+    .empty-state .emoji { font-size: 2.5rem; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* Todo item */
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      animation: slideIn 0.3s cubic-bezier(0.34,1.3,0.64,1);
+      transition: background 0.15s;
+    }
+
+    .todo-item:last-child { border-bottom: none; }
+    .todo-item:hover { background: var(--bg); }
+
+    .todo-item.done .todo-text {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes slideOut {
+      from { opacity: 1; transform: translateX(0); max-height: 100px; }
+      to { opacity: 0; transform: translateX(40px); max-height: 0; padding: 0; }
+    }
+
+    .todo-item.removing {
+      animation: slideOut 0.3s forwards;
+    }
+
+    /* Checkbox */
+    .todo-check {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .todo-item.done .todo-check {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .todo-check::after {
+      content: '✓';
+      font-size: 0.65rem;
+      color: #fff;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .todo-item.done .todo-check::after { opacity: 1; }
+
+    .todo-text {
+      flex: 1;
+      font-size: 0.92rem;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+
+    .todo-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 1rem;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+      line-height: 1;
+    }
+
+    .btn-delete:hover {
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* ── FOOTER BAR ── */
+    .footer-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 16px 16px;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-info {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .footer-info span {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-clear {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-exit {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: none;
+      background: var(--ink);
+      color: #fff;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-exit:hover { opacity: 0.8; }
+
+    /* ── EXIT MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10,8,6,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 36px 32px 28px;
+      max-width: 360px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+
+    .modal p {
+      font-size: 0.87rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .modal-summary {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--ink);
+      line-height: 2;
+    }
+
+    .modal-summary b { color: var(--accent); }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .modal-actions button {
+      flex: 1;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.88rem;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-cancel {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      color: var(--ink);
+    }
+
+    .btn-confirm-exit {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+    }
+
+    .btn-cancel:hover, .btn-confirm-exit:hover { opacity: 0.8; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--ink);
+      color: #fff;
+      font-size: 0.82rem;
+      padding: 10px 20px;
+      border-radius: 30px;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 200;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-left">
+        <h1>📋 My To-Do List</h1>
+        <p>// stay organized, stay productive</p>
+      </div>
+      <div class="counter-bubble">
+        <div class="count" id="count">0</div>
+        <div class="count-label">Tasks</div>
+      </div>
+    </div>
+
+    <!-- INPUT -->
+    <div class="input-area">
+      <input type="text" id="taskInput" placeholder="What do you need to do today?" maxlength="120" />
+      <button class="btn-add" onclick="addTask()">+ Add</button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="setFilter('all', this)">All</button>
+      <button class="tab" onclick="setFilter('active', this)">Active</button>
+      <button class="tab" onclick="setFilter('done', this)">Completed</button>
+    </div>
+
+    <!-- LIST -->
+    <div class="list-area" id="listArea"></div>
+
+    <!-- FOOTER -->
+    <div class="footer-bar">
+      <div class="footer-info" id="footerInfo">0 tasks · <span>0 done</span></div>
+      <div class="footer-actions">
+        <button class="btn-clear" onclick="clearCompleted()">Clear Done</button>
+        <button class="btn-exit" onclick="openExit()">Exit ✕</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- EXIT MODAL -->
+  <div class="modal-overlay" id="exitModal">
+    <div class="modal">
+      <h2>Ready to Exit?</h2>
+      <p>Here's a summary of your session before you go:</p>
+      <div class="modal-summary" id="exitSummary"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeExit()">Stay</button>
+        <button class="btn-confirm-exit" onclick="confirmExit()">Exit App</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let todos = [];
+    let filter = 'all';
+    let nextId = 1;
+
+    const input = document.getElementById('taskInput');
+    const listArea = document.getElementById('listArea');
+
+    // Allow Enter key to add task
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+    function addTask() {
+      const text = input.value.trim();
+      if (!text) { showToast('⚠️ Please enter a task!'); input.focus(); return; }
+
+      const now = new Date();
+      const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      todos.unshift({ id: nextId++, text, done: false, time });
+      input.value = '';
+      input.focus();
+
+      bumpCounter();
+      render();
+      showToast('✅ Task added!');
+    }
+
+    function toggleDone(id) {
+      const t = todos.find(t => t.id === id);
+      if (t) t.done = !t.done;
+      render();
+    }
+
+    function deleteTask(id) {
+      const item = document.getElementById('item-' + id);
+      if (item) {
+        item.classList.add('removing');
+        setTimeout(() => {
+          todos = todos.filter(t => t.id !== id);
+          render();
+          showToast('🗑️ Task deleted');
+        }, 280);
+      }
+    }
+
+    function clearCompleted() {
+      const count = todos.filter(t => t.done).length;
+      if (count === 0) { showToast('No completed tasks to clear'); return; }
+      todos = todos.filter(t => !t.done);
+      render();
+      showToast(`🧹 Cleared ${count} completed task${count > 1 ? 's' : ''}`);
+    }
+
+    function setFilter(f, btn) {
+      filter = f;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function render() {
+      const filtered = todos.filter(t => {
+        if (filter === 'active') return !t.done;
+        if (filter === 'done') return t.done;
+        return true;
+      });
+
+      const total = todos.length;
+      const done = todos.filter(t => t.done).length;
+
+      document.getElementById('count').textContent = total;
+      document.getElementById('footerInfo').innerHTML = `${total} task${total !== 1 ? 's' : ''} · <span>${done} done</span>`;
+
+      if (filtered.length === 0) {
+        const msgs = {
+          all: { emoji: '🎉', text: 'No tasks yet. Add something above!' },
+          active: { emoji: '✅', text: 'All tasks completed!' },
+          done: { emoji: '📭', text: 'No completed tasks yet.' }
+        };
+        const m = msgs[filter];
+        listArea.innerHTML = `
+          <div class="empty-state">
+            <div class="emoji">${m.emoji}</div>
+            <p>${m.text}</p>
+          </div>`;
+        return;
+      }
+
+      listArea.innerHTML = filtered.map(t => `
+        <div class="todo-item ${t.done ? 'done' : ''}" id="item-${t.id}">
+          <div class="todo-check" onclick="toggleDone(${t.id})"></div>
+          <div class="todo-text">${escHtml(t.text)}</div>
+          <div class="todo-meta">${t.time}</div>
+          <button class="btn-delete" onclick="deleteTask(${t.id})" title="Delete">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function bumpCounter() {
+      const el = document.getElementById('count');
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 400);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function openExit() {
+      const total = todos.length;
+      const done = todos.filter(t => t.done).length;
+      const active = total - done;
+      document.getElementById('exitSummary').innerHTML =
+        `Total tasks added: <b>${total}</b>\n` +
+        `Completed: <b>${done}</b>\n` +
+        `Still pending: <b>${active}</b>`;
+      document.getElementById('exitModal').classList.add('show');
+    }
+
+    function closeExit() {
+      document.getElementById('exitModal').classList.remove('show');
+    }
+
+    function confirmExit() {
+      document.body.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:'Outfit',sans-serif;color:#1a1612;gap:16px;">
+          <div style="font-size:3rem">👋</div>
+          <h2 style="font-size:1.6rem;font-weight:700">See you later!</h2>
+          <p style="color:#9a8f80;font-size:0.9rem">Your to-do list session has ended.</p>
+          <button onclick="location.reload()" style="margin-top:12px;padding:12px 28px;background:#e85d2f;color:#fff;border:none;border-radius:10px;font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:600;cursor:pointer;">Start Fresh</button>
+        </div>`;
+    }
+
+    // Close modal on overlay click
+    document.getElementById('exitModal').addEventListener('click', function(e) {
+      if (e.target === this) closeExit();
+    });
+
+    render();
+  </script>
+
+</body>
+</html>
