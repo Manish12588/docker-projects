@@ -1,0 +1,53 @@
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: practice_postgres
+    environment:
+      POSTGRES_DB:       practicedb
+      POSTGRES_USER:     admin
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"           # expose so you can also connect with psql / DBeaver
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d practicedb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: practice_redis
+    ports:
+      - "6379:6379"           # expose so you can also connect with redis-cli
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Flask Web App ──────────────────────────────────────────────────────────
+  web:
+    build: .
+    container_name: practice_web
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST:     db
+      POSTGRES_PORT:     5432
+      POSTGRES_DB:       practicedb
+      POSTGRES_USER:     admin
+      POSTGRES_PASSWORD: secret
+      REDIS_HOST:        redis
+      REDIS_PORT:        6379
+    ports:
+      - "5000:5000"
+volumes:
+  postgres_data:

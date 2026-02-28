@@ -1,0 +1,24 @@
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt --target /app/package
+
+FROM python:3.12-slim AS runner
+
+WORKDIR /app
+
+COPY --from=builder /app/package /app/package
+
+COPY main.py      .
+COPY app/         ./app/
+COPY templates/   ./templates/
+COPY static/      ./static/
+
+ENV PYTHONPATH=/app/package
+
+EXPOSE 5000
+
+CMD [ "main.py"]

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Docker Practice App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --border: #2c2f3e;
+      --accent: #4f9cf9; --green: #4ade80; --red: #f87171;
+      --yellow: #fbbf24; --text: #e2e8f0; --muted: #64748b;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 24px; }
+    h1 { font-size: 1.6rem; margin-bottom: 4px; }
+    .tagline { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    @media(max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 14px; }
+
+    /* Health */
+    .service-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 14px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .dot.up { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.down { background: var(--red); }
+    .service-name { font-weight: 500; flex: 1; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: #ffffff0d; }
+    .badge.up { color: var(--green); }
+    .badge.down { color: var(--red); }
+
+    /* Stats */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat { background: #ffffff06; border-radius: 8px; padding: 12px 14px; }
+    .stat-val { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Form */
+    .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    input[type=text] {
+      flex: 1; background: #ffffff08; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 14px; padding: 10px 12px; outline: none;
+    }
+    input[type=text]:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+    button {
+      background: var(--accent); color: #0f1117; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; padding: 10px 18px; cursor: pointer; white-space: nowrap;
+      transition: opacity .15s;
+    }
+    button:hover { opacity: .85; }
+    button.danger { background: var(--red); color: #fff; }
+    button.ghost  { background: #ffffff10; color: var(--text); }
+
+    /* Notes list */
+    .notes-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .source-tag { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+    .source-tag.cache    { background: #fbbf2420; color: var(--yellow); }
+    .source-tag.database { background: #4f9cf920; color: var(--accent); }
+
+    .note-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .note-item:last-child { border-bottom: none; }
+    .note-body { flex: 1; }
+    .note-content { font-size: 14px; margin-bottom: 4px; }
+    .note-meta { font-size: 11px; color: var(--muted); }
+    .delete-btn {
+      background: none; color: var(--muted); border: none;
+      font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1;
+    }
+    .delete-btn:hover { color: var(--red); }
+    .empty { color: var(--muted); font-size: 13px; padding: 16px 0; text-align: center; }
+
+    /* Cache panel */
+    .cache-info { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+    .cache-info strong { color: var(--text); }
+    .ttl-bar-wrap { background: #ffffff0a; border-radius: 4px; height: 6px; margin: 8px 0 14px; overflow: hidden; }
+    .ttl-bar { height: 100%; background: var(--yellow); border-radius: 4px; transition: width .5s linear; }
+
+    .log { background: #0a0c14; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+           font-family: monospace; font-size: 12px; height: 130px; overflow-y: auto; }
+    .log-line { margin-bottom: 3px; }
+    .log-line.hit   { color: var(--yellow); }
+    .log-line.miss  { color: var(--accent); }
+    .log-line.write { color: var(--green); }
+    .log-line.del   { color: var(--red); }
+    .log-line.info  { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<h1>🐳 Docker Practice App</h1>
+<p class="tagline">Flask · PostgreSQL · Redis — all talking to each other in containers</p>
+
+<div class="grid">
+
+  <!-- Health -->
+  <div class="card">
+    <h2>Service Health</h2>
+    <div class="service-row">
+      <div class="dot" id="dot-pg"></div>
+      <span class="service-name">PostgreSQL</span>
+      <span class="badge" id="badge-pg">checking…</span>
+    </div>
+    <div class="service-row">
+      <div class="dot" id="dot-rd"></div>
+      <span class="service-name">Redis</span>
+      <span class="badge" id="badge-rd">checking…</span>
+    </div>
+    <div class="service-row">
+      <div class="dot up"></div>
+      <span class="service-name">Flask API</span>
+      <span class="badge up">running</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <h2>Live Stats</h2>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-val" id="stat-notes">–</div><div class="stat-label">Notes in DB</div></div>
+      <div class="stat"><div class="stat-val" id="stat-keys">–</div><div class="stat-label">Redis Keys</div></div>
+      <div class="stat"><div class="stat-val" id="stat-hits">–</div><div class="stat-label">Cache Hits</div></div>
+      <div class="stat"><div class="stat-val" id="stat-misses">–</div><div class="stat-label">Cache Misses</div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="grid">
+
+  <!-- Notes -->
+  <div class="card">
+    <h2>Notes</h2>
+    <div class="form-row">
+      <input type="text" id="inputAuthor" placeholder="Author (optional)" style="max-width:130px"/>
+      <input type="text" id="inputContent" placeholder="Write a note…"/>
+      <button onclick="addNote()">Add</button>
+    </div>
+    <div class="notes-header">
+      <span style="font-size:13px;color:var(--muted)">All notes</span>
+      <span class="source-tag" id="sourceTag">…</span>
+    </div>
+    <div id="notesList"><p class="empty">Loading…</p></div>
+  </div>
+
+  <!-- Cache Inspector -->
+  <div class="card">
+    <h2>Cache Inspector (TTL = 15 s)</h2>
+    <p class="cache-info">
+      When you <strong>fetch notes</strong>, the result is stored in Redis for
+      <strong>15 seconds</strong>. Adding or deleting a note <strong>busts the cache</strong>.<br/>
+      Watch the source tag switch between
+      <span style="color:var(--yellow)">⚡ cache</span> and
+      <span style="color:var(--accent)">🐘 database</span>.
+    </p>
+    <div>Cache freshness: <span id="ttlLabel" style="font-size:12px;color:var(--muted)">n/a</span></div>
+    <div class="ttl-bar-wrap"><div class="ttl-bar" id="ttlBar" style="width:0%"></div></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="ghost" onclick="fetchNotes()">↻ Refresh Notes</button>
+      <button class="danger" onclick="flushCache()">🗑 Flush Cache</button>
+    </div>
+    <div class="log" id="eventLog"><div class="log-line info">// events will appear here</div></div>
+  </div>
+
+</div>
+
+<script>
+  const CACHE_TTL = 15;
+  let ttlValue = 0, ttlTimer = null;
+
+  function log(msg, type='info') {
+    const el = document.getElementById('eventLog');
+    const d = new Date().toLocaleTimeString();
+    el.innerHTML += `<div class="log-line ${type}">[${d}] ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function checkHealth() {
+    try {
+      const r = await fetch('/health');
+      const d = await r.json();
+      setService('pg', d.postgres, 'PostgreSQL');
+      setService('rd', d.redis, 'Redis');
+    } catch { setService('pg', false); setService('rd', false); }
+  }
+
+  function setService(id, up, name) {
+    document.getElementById(`dot-${id}`).className = 'dot ' + (up ? 'up' : 'down');
+    const b = document.getElementById(`badge-${id}`);
+    b.textContent = up ? 'connected' : 'unreachable';
+    b.className = 'badge ' + (up ? 'up' : 'down');
+  }
+
+  async function fetchStats() {
+    try {
+      const d = await (await fetch('/stats')).json();
+      document.getElementById('stat-notes').textContent   = d.postgres_notes;
+      document.getElementById('stat-keys').textContent    = d.redis_keys;
+      document.getElementById('stat-hits').textContent    = d.redis_hits;
+      document.getElementById('stat-misses').textContent  = d.redis_misses;
+    } catch {}
+  }
+
+  async function fetchNotes() {
+    const d = await (await fetch('/notes')).json();
+    const src = d.source;
+    const tag = document.getElementById('sourceTag');
+    tag.textContent = src === 'cache' ? '⚡ cache' : '🐘 database';
+    tag.className   = `source-tag ${src}`;
+
+    if (src === 'cache') {
+      log(`GET /notes → served from Redis (TTL: ${d.cache_ttl}s remaining)`, 'hit');
+      startTtl(d.cache_ttl);
+    } else {
+      log('GET /notes → cache miss, queried PostgreSQL', 'miss');
+      startTtl(CACHE_TTL);
+    }
+
+    const list = document.getElementById('notesList');
+    if (!d.notes.length) { list.innerHTML = '<p class="empty">No notes yet. Add one above!</p>'; return; }
+    list.innerHTML = d.notes.map(n => `
+      <div class="note-item">
+        <div class="note-body">
+          <div class="note-content">${esc(n.content)}</div>
+          <div class="note-meta">by ${esc(n.author)} · ${n.created_at.slice(0,19).replace('T',' ')}</div>
+        </div>
+        <button class="delete-btn" onclick="deleteNote(${n.id})" title="Delete">×</button>
+      </div>`).join('');
+
+    fetchStats();
+  }
+
+  async function addNote() {
+    const content = document.getElementById('inputContent').value.trim();
+    const author  = document.getElementById('inputAuthor').value.trim();
+    if (!content) return;
+    await fetch('/notes', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ content, author }) });
+    log(`POST /notes → inserted, cache invalidated`, 'write');
+    document.getElementById('inputContent').value = '';
+    stopTtl();
+    fetchNotes();
+  }
+
+  async function deleteNote(id) {
+    await fetch(`/notes/${id}`, { method:'DELETE' });
+    log(`DELETE /notes/${id} → deleted, cache invalidated`, 'del');
+    stopTtl();
+    fetchNotes();
+  }
+
+  async function flushCache() {
+    await fetch('/cache/flush', { method:'POST' });
+    log('Cache flushed manually', 'del');
+    stopTtl();
+    fetchNotes();
+  }
+
+  function startTtl(seconds) {
+    stopTtl();
+    ttlValue = seconds;
+    updateTtlBar();
+    ttlTimer = setInterval(() => {
+      ttlValue = Math.max(0, ttlValue - 1);
+      updateTtlBar();
+      if (ttlValue === 0) stopTtl();
+    }, 1000);
+  }
+
+  function stopTtl() {
+    clearInterval(ttlTimer);
+    ttlValue = 0;
+    updateTtlBar();
+  }
+
+  function updateTtlBar() {
+    document.getElementById('ttlBar').style.width = (ttlValue / CACHE_TTL * 100) + '%';
+    document.getElementById('ttlLabel').textContent = ttlValue > 0 ? `${ttlValue}s remaining` : 'expired / no cache';
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // Init
+  checkHealth();
+  fetchNotes();
+  setInterval(checkHealth, 8000);
+  setInterval(fetchStats, 5000);
+</script>
+</body>
+</html>
