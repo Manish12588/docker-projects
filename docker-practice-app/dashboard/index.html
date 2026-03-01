@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Docker Practice App</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #7d8590;
+      --accent:    #58a6ff;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+      --radius:    10px;
+      --mono:      'JetBrains Mono', monospace;
+      --sans:      'DM Sans', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 80px;
+    }
+    header { width: 100%; max-width: 760px; margin-bottom: 40px; }
+    .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .whale { font-size: 2rem; animation: float 3s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    h1 { font-family: var(--mono); font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 700; }
+    .subtitle { font-size: 0.85rem; color: var(--muted); font-family: var(--mono); }
+    .api-note {
+      width: 100%; max-width: 760px;
+      background: rgba(88,166,255,0.07);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--accent);
+      margin-bottom: 24px;
+    }
+    .api-note strong { display: block; margin-bottom: 4px; font-size: 0.8rem; }
+    .summary {
+      width: 100%; max-width: 760px;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin-bottom: 24px;
+    }
+    .summary-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 18px;
+      animation: slideIn 0.4s ease both;
+    }
+    .summary-item:nth-child(1) { animation-delay: 0.0s; }
+    .summary-item:nth-child(2) { animation-delay: 0.05s; }
+    .summary-item:nth-child(3) { animation-delay: 0.1s; }
+    .summary-label { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+    .summary-value { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; }
+    .summary-value.green { color: var(--green); }
+    .summary-value.red   { color: var(--red); }
+    .card {
+      width: 100%; max-width: 760px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; margin-bottom: 24px;
+    }
+    .card-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title { font-family: var(--mono); font-size: 0.7rem; font-weight: 700; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; }
+    .refresh-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); font-family: var(--mono); font-size: 0.72rem;
+      padding: 5px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    }
+    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .refresh-btn svg { width: 12px; height: 12px; }
+    .service-list { padding: 8px 0; }
+    .service-row {
+      display: flex; align-items: center;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      transition: background 0.15s; animation: slideIn 0.35s ease both;
+    }
+    .service-row:last-child { border-bottom: none; }
+    .service-row:hover { background: rgba(255,255,255,0.02); }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .service-row:nth-child(1) { animation-delay: 0.05s; }
+    .service-row:nth-child(2) { animation-delay: 0.10s; }
+    .service-row:nth-child(3) { animation-delay: 0.15s; }
+    .service-row:nth-child(4) { animation-delay: 0.20s; }
+    .service-row:nth-child(5) { animation-delay: 0.25s; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-right: 14px; position: relative; }
+    .dot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; }
+    .dot.green        { background: var(--green); }
+    .dot.green::after { background: var(--green); animation: pulse 2.2s ease-in-out infinite; }
+    .dot.yellow        { background: var(--yellow); }
+    .dot.yellow::after { background: var(--yellow); animation: pulse 2.2s ease-in-out infinite; }
+    .dot.red { background: var(--red); }
+    @keyframes pulse { 0%, 100% { opacity: 0; transform: scale(1); } 50% { opacity: 0.3; transform: scale(2.2); } }
+    .service-info { flex: 1; }
+    .service-name { font-family: var(--mono); font-size: 0.9rem; font-weight: 500; }
+    .service-desc { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .port-badge {
+      font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 5px; padding: 3px 8px; margin-right: 10px;
+    }
+    .status-badge {
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 500;
+      padding: 4px 10px; border-radius: 5px; min-width: 82px; text-align: center;
+    }
+    .status-badge.connected { background: rgba(63,185,80,0.15);   color: var(--green); }
+    .status-badge.running   { background: rgba(88,166,255,0.12);  color: var(--accent); }
+    .status-badge.starting  { background: rgba(210,153,34,0.15);  color: var(--yellow); }
+    .status-badge.stopped   { background: rgba(248,81,73,0.15);   color: var(--red); }
+    .status-badge.checking  { background: rgba(125,133,144,0.12); color: var(--muted); }
+    footer { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
+    footer span { color: var(--accent); }
+    .spinning { animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-top">
+      <span class="whale">🐳</span>
+      <h1>Docker Practice App</h1>
+    </div>
+    <p class="subtitle">Flask · PostgreSQL · Redis — all talking to each other in containers</p>
+  </header>
+
+  <div class="api-note">
+    <strong>ℹ️ Live mode</strong>
+    Health data is proxied via Nginx → Flask API. Open at
+    <code>http://localhost:8080</code> after running <code>docker compose up --build</code>.
+  </div>
+
+  <div class="summary">
+    <div class="summary-item">
+      <div class="summary-label">Total Services</div>
+      <div class="summary-value" id="total-count" style="color:var(--text)">—</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Healthy</div>
+      <div class="summary-value green" id="healthy-count">—</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Issues</div>
+      <div class="summary-value red" id="issue-count">—</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Service Health</span>
+      <button class="refresh-btn" onclick="refresh()">
+        <svg id="refresh-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1.5 8a6.5 6.5 0 1 0 1.3-3.9"/>
+          <polyline points="1 3.5 1.5 8 6 7.5"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+    <div class="service-list" id="service-list"></div>
+  </div>
+
+  <footer>Last checked: <span id="last-checked">—</span></footer>
+
+  <script>
+    /**
+     * ════════════════════════════════════════════════════════
+     *  SERVICES ARRAY — one object per container row.
+     *
+     *  `endpoint` uses a RELATIVE /api/ path (not localhost:5000).
+     *  Nginx proxies /api/* → flask:5000 internally, so there
+     *  are zero CORS issues.
+     *
+     *  HOW TO ADD A NEW SERVICE:
+     *    1. Add object here  (name, desc, port, endpoint)
+     *    2. Add route in     app/app.py
+     *    3. Add service in   docker-compose.yml
+     *    4. docker compose up --build
+     * ════════════════════════════════════════════════════════
+     */
+    const SERVICES = [
+      {
+        name:     "PostgreSQL",
+        desc:     "Primary relational database",
+        port:     "5432",
+        endpoint: "/api/health/postgres"
+      },
+      {
+        name:     "Redis",
+        desc:     "In-memory cache & message broker",
+        port:     "6379",
+        endpoint: "/api/health/redis"
+      },
+       {
+        name:     "Flask API",
+        desc:     "Python web server (app container)",
+        port:     "5000",
+        endpoint: "/api/health/flask"
+      },
+      {
+          name:     "MySQL",
+          desc:     "MySQL 8.0 — mysql_db",
+          port:     "3306",
+          endpoint: "/api/health/mysql"
+      }
+
+      // ── ADD MORE SERVICES BELOW ─────────────────────────────
+      // {
+      //   name:     "Nginx",
+      //   desc:     "Reverse proxy / load balancer",
+      //   port:     "80",
+      //   endpoint: "/api/health/nginx"
+      // },
+    ];
+
+    async function fetchStatus(endpoint) {
+      try {
+        const res  = await fetch(endpoint, { signal: AbortSignal.timeout(5000) });
+        const data = await res.json();
+        return data.status || "stopped";
+      } catch (err) {
+        console.warn("Health check failed:", endpoint, err.message);
+        return "stopped";
+      }
+    }
+
+    function dotClass(status) {
+      return { connected: "green", running: "green", starting: "yellow", stopped: "red" }[status] ?? "red";
+    }
+
+    function renderPlaceholders() {
+      document.getElementById("service-list").innerHTML = SERVICES.map((s, i) => `
+        <div class="service-row" id="row-${i}">
+          <div class="dot yellow" id="dot-${i}"></div>
+          <div class="service-info">
+            <div class="service-name">${s.name}</div>
+            <div class="service-desc">${s.desc}</div>
+          </div>
+          ${s.port ? `<span class="port-badge">:${s.port}</span>` : ""}
+          <span class="status-badge checking" id="badge-${i}">checking…</span>
+        </div>
+      `).join("");
+    }
+
+    async function refresh() {
+      const icon = document.getElementById("refresh-icon");
+      icon.classList.add("spinning");
+      renderPlaceholders();
+      document.getElementById("last-checked").textContent = "checking…";
+
+      const results = await Promise.all(SERVICES.map(s => fetchStatus(s.endpoint)));
+
+      results.forEach((status, i) => {
+        document.getElementById(`dot-${i}`).className = `dot ${dotClass(status)}`;
+        const badge = document.getElementById(`badge-${i}`);
+        badge.className   = `status-badge ${status}`;
+        badge.textContent = status;
+      });
+
+      const healthy = results.filter(r => r === "connected" || r === "running").length;
+      const issues  = results.filter(r => r === "stopped"   || r === "starting").length;
+      document.getElementById("total-count").textContent   = SERVICES.length;
+      document.getElementById("healthy-count").textContent = healthy;
+      document.getElementById("issue-count").textContent   = issues;
+      document.getElementById("last-checked").textContent  =
+        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+      icon.classList.remove("spinning");
+    }
+
+    refresh();
+    setInterval(refresh, 30_000);
+  </script>
+</body>
+</html>
